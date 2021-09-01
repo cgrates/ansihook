@@ -1,2 +1,2 @@
 # AnsiHook
-WebHooks Server running ansible playbooks
+WebHooks Server running Ansible playbooks
