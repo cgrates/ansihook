@@ -26,7 +26,7 @@ import (
 
 var (
 	secret            = flag.String("secret", "", "The secret for webhook")
-	pattern           = flag.String("http_path", "/webhook", "The webhook path")
+	pattern           = flag.String("http_path", "/webhooks", "The webhook path")
 	address           = flag.String("address", ":8080", "The addres the server is created")
 	ansibleScriptPath = flag.String("path", "./main.yaml", "The path to the ansible script")
 
@@ -47,7 +47,7 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch event.(type) {
-	case *github.PullRequestEvent:
+	case *github.PushEvent:
 		go executeAnsible(ansiblePath, *ansibleScriptPath)
 	default:
 		log.Printf("unknown event type %s\n", github.WebHookType(r))
@@ -61,7 +61,7 @@ func main() {
 	if ansiblePath, err = exec.LookPath("ansible-playbook"); err != nil {
 		log.Fatalf("Unable to find ansible-playbook: %s", err)
 	}
-	log.Println("server started")
+	log.Println("server started at: ", *address+*pattern)
 	http.HandleFunc(*pattern, handleWebhook)
 	if err = http.ListenAndServe(*address, nil); err != nil {
 		log.Fatalf("Unable to start server: %s", err)
@@ -75,6 +75,7 @@ func executeAnsible(ansiblePath, scriptPath string) (err error) {
 	// cmd.Stdout = stdout
 	// cmd.Stderr = stderr
 	if err = cmd.Run(); err != nil {
+		// fmt.Println(ansiblePath, scriptPath)
 		// fmt.Print(stdout, stderr)
 		log.Printf("Failed to run ansible script because: %s", err)
 	}
