@@ -16,7 +16,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 package main
 
 import (
+	"bytes"
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os/exec"
@@ -72,14 +74,16 @@ func main() {
 
 func executeAnsible(ansiblePath, scriptPath string) (err error) {
 	cmd := exec.Command(ansiblePath, scriptPath, "-i", *ansibleInventory)
-	// stdout := new(bytes.Buffer)
-	// stderr := new(bytes.Buffer)
-	// cmd.Stdout = stdout
-	// cmd.Stderr = stderr
+	fmt.Println("Running:", cmd.String())
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 	if err = cmd.Run(); err != nil {
-		// fmt.Println(ansiblePath, scriptPath)
-		// fmt.Print(stdout, stderr)
+		fmt.Println(ansiblePath, scriptPath)
+		fmt.Print(stdout, stderr)
 		log.Printf("Failed to run ansible script because: %s", err)
 	}
+	fmt.Println(ansiblePath, scriptPath)
 	return
 }
