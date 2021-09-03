@@ -48,6 +48,7 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 	switch event.(type) {
 	case *github.PushEvent:
+		log.Println("Received a push event")
 		go executeAnsible(ansiblePath, *ansibleScriptPath)
 	default:
 		log.Printf("unknown event type %s\n", github.WebHookType(r))

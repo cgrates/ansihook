@@ -1,0 +1,15 @@
+# Stop dance for ansihook
+# =======================
+
+[Unit]
+Description=ansihook- webhook for ansible
+After=network.target
+
+[Service]
+ExecStart=ansihook -secret=my-secret -path=/path/to/main.yaml
+StandardOutput=journal
+StandardError=journal
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
