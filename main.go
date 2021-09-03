@@ -29,6 +29,7 @@ var (
 	pattern           = flag.String("http_path", "/webhooks", "The webhook path")
 	address           = flag.String("address", ":8080", "The addres the server is created")
 	ansibleScriptPath = flag.String("path", "./main.yaml", "The path to the ansible script")
+	ansibleInventory  = flag.String("inventory", "./hosts", "The path to the ansible inventory")
 
 	ansiblePath string
 )
@@ -70,7 +71,7 @@ func main() {
 }
 
 func executeAnsible(ansiblePath, scriptPath string) (err error) {
-	cmd := exec.Command(ansiblePath, scriptPath)
+	cmd := exec.Command(ansiblePath, scriptPath, "-i", *ansibleInventory)
 	// stdout := new(bytes.Buffer)
 	// stderr := new(bytes.Buffer)
 	// cmd.Stdout = stdout
