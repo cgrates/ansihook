@@ -1,0 +1,8 @@
+[cgrates]
+localhost ansible_connection=local
+
+[cgrates:vars]
+user=nick
+repo_path=/nfs/Rakuten
+loader_id=RakutenLoader
+cgrates_address=http://192.168.122.141:32080/jsonrpc

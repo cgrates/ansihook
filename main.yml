@@ -1,0 +1,68 @@
+---
+
+- hosts: cgrates
+  tasks:
+    - name: Ensure that git is installed
+      become: yes
+      apt:
+        name: git
+        state: present
+
+    - name: Prepare temporary repo
+      become: yes
+      file:
+        path: "{{ item }}"
+        state: directory
+        recurse: yes
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: u=rwx,g=rwx,o=rwx
+      with_items:
+        - "/tmp/{{ user }}/Rakuten"
+        - "{{ repo_path }}"
+
+
+    - name: Update tariffplans
+      git:
+        repo: git@github.com:ITsysCOM/Rakuten.git
+        dest: "/tmp/{{ user }}/Rakuten" 
+      become: yes
+      become_user: "{{ user }}" 
+
+    - name: Remove old repo
+      file:
+        path: "{{ repo_path }}"
+        state: absent
+
+    - name: Copy repo
+      copy:
+        src: "/tmp/{{ user }}/Rakuten/"
+        dest: "{{ repo_path }}"
+        remote_src: yes
+        owner: "{{ user }}"
+        group: "{{ user }}"
+        mode: u=rwx,g=rwx,o=rwx
+
+    - name: Recursively change permisions
+      file:
+        dest: "{{ repo_path }}"
+        recurse: yes
+        mode: u=rwx,g=rwx,o=rwx
+
+    - name: Clean tmp
+      file:
+        path: "/tmp/{{ user }}/Rakuten"
+        state: absent
+
+    - name: Load tariffplans
+      uri:
+        url: "{{ cgrates_address }}"
+        body_format: json
+        body: '{"method":"LoaderSv1.Load","params":[{"LoaderID":"{{ loader_id }}","ForceLock":false,"Caching":null,"StopOnError":false}],"id":0}'
+        status_code: [200]
+        return_content: true
+      register: _result
+    
+    - fail:
+        msg: "{{ _result.json.error }}"
+      when: _result.json.error != None
