@@ -17,17 +17,49 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 
 	"github.com/apenella/go-ansible/pkg/options"
 	"github.com/apenella/go-ansible/pkg/playbook"
+	"github.com/go-playground/webhooks/v6/bitbucket"
 	"github.com/go-playground/webhooks/v6/github"
+	"github.com/go-playground/webhooks/v6/gitlab"
 )
+
+const (
+	GITHUB    = "*github"
+	GITLAB    = "*gitlab"
+	BITBUCKET = "*bitbucket"
+)
+
+func NewWebhookParser(wType, secret string) func(*http.Request) (interface{}, error) {
+	switch wType {
+	case GITHUB:
+		hook, _ := github.New(github.Options.Secret(secret))
+		return func(r *http.Request) (interface{}, error) {
+			return hook.Parse(r, github.PushEvent)
+		}
+	case GITLAB:
+		hook, _ := gitlab.New(gitlab.Options.Secret(secret))
+		return func(r *http.Request) (interface{}, error) {
+			return hook.Parse(r, gitlab.PushEvents)
+		}
+	case BITBUCKET:
+		hook, _ := bitbucket.New(bitbucket.Options.UUID(secret))
+		return func(r *http.Request) (interface{}, error) {
+			return hook.Parse(r, bitbucket.RepoPushEvent)
+		}
+	default:
+		return func(*http.Request) (interface{}, error) {
+			return nil, errors.New("Webhook type not found")
+		}
+	}
+}
 
 var (
 	secret            = flag.String("secret", "", "The secret for webhook")
@@ -35,8 +67,7 @@ var (
 	address           = flag.String("address", ":8080", "The addres the server is created")
 	ansibleScriptPath = flag.String("path", "./main.yaml", "The path to the ansible script")
 	ansibleInventory  = flag.String("inventory", "./hosts", "The path to the ansible inventory")
-
-	ansiblePath string
+	service           = flag.String("service", "github", "The service ansihook will use i.e: Github, Gitlab, Bitbucket")
 )
 
 func handleWebhook(w http.ResponseWriter, r *http.Request) {
@@ -46,14 +77,14 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 		event, err := hook.Parse(r, github.PushEvent)
 		if err != nil {
 			if err == github.ErrEventNotFound {
-				fmt.Println(err)
+				log.Println(err)
 			}
 		}
 
 		switch event.(type) {
 		case github.PushPayload:
 			log.Println("Received a push event")
-			go executeAnsible(ansiblePath, *ansibleScriptPath)
+			go executeAnsible(*ansibleScriptPath)
 		default:
 			log.Printf("unknown event type %T\n", event)
 			return
@@ -64,9 +95,6 @@ func handleWebhook(w http.ResponseWriter, r *http.Request) {
 func main() {
 	flag.Parse()
 	var err error
-	if ansiblePath, err = exec.LookPath("ansible-playbook"); err != nil {
-		log.Fatalf("Unable to find ansible-playbook: %s", err)
-	}
 	log.Println("server started at: ", *address+*pattern)
 	http.HandleFunc(*pattern, handleWebhook)
 	if err = http.ListenAndServe(*address, nil); err != nil {
@@ -74,7 +102,7 @@ func main() {
 	}
 }
 
-func executeAnsible(ansiblePath, scriptPath string) (err error) {
+func executeAnsible(scriptPath string) (err error) {
 	ansiblePlaybookConnectionOptions := &options.AnsibleConnectionOptions{
 		Connection: "local",
 		User:       "nick",

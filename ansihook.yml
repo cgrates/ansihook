@@ -1,0 +1,29 @@
+---
+
+- hosts: cgrates
+  tasks:
+    - name: Installing ansihook library
+      shell: 'go install github.com/cgrates/ansihook@latest'
+
+    - name: Move the ansihook service in systemd services directory
+      become: yes
+      copy:
+        src: ansihook.service
+        dest: /etc/systemd/system
+        mode: 0644
+    
+    - name: Make the binary globally available
+      become: yes
+      copy:
+        src: ~/go/bin/ansihook
+        dest: /usr/bin
+        mode: 0644
+
+    - name: Configuring systemd properties
+      become: yes
+      systemd:
+        daemon-reload: yes
+        name: ansihook
+        enabled: yes
+        masked: no
+        state: started
