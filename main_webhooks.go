@@ -16,13 +16,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
+	"log/syslog"
 	"net/http"
-	"os"
 
 	"github.com/apenella/go-ansible/pkg/options"
 	"github.com/apenella/go-ansible/pkg/playbook"
@@ -32,13 +32,15 @@ import (
 )
 
 const (
-	GITHUB    = "*github"
-	GITLAB    = "*gitlab"
-	BITBUCKET = "*bitbucket"
+	GITHUB     = "*github"
+	GITLAB     = "*gitlab"
+	BITBUCKET  = "*bitbucket"
+	MetaStdLog = "*stdout"
+	MetaSysLog = "*syslog"
 )
 
-func NewWebhookParser(wType, secret string) func(*http.Request) (interface{}, error) {
-	switch wType {
+func NewWebhookParser(secret string) func(*http.Request) (interface{}, error) {
+	switch *service {
 	case GITHUB:
 		hook, _ := github.New(github.Options.Secret(secret))
 		return func(r *http.Request) (interface{}, error) {
@@ -68,33 +70,42 @@ var (
 	ansibleScriptPath = flag.String("path", "./main.yaml", "The path to the ansible script")
 	ansibleInventory  = flag.String("inventory", "./hosts", "The path to the ansible inventory")
 	service           = flag.String("service", "github", "The service ansihook will use i.e: Github, Gitlab, Bitbucket")
+	logType           = flag.String("logtype", "*stdout", "Choose logging type i.e: *stdout, *syslog")
 )
 
-func handleWebhook(w http.ResponseWriter, r *http.Request) {
-	hook, _ := github.New(github.Options.Secret(*secret))
+func setLoggerOutput(id string) {
+	logger := bytes.NewBuffer(nil)
+	switch *logType {
+	case MetaStdLog:
+		log.SetOutput(logger)
 
-	http.HandleFunc(*pattern, func(rw http.ResponseWriter, r *http.Request) {
-		event, err := hook.Parse(r, github.PushEvent)
+	case MetaSysLog:
+		var l *syslog.Writer
+		l, err := syslog.New(syslog.LOG_INFO|syslog.LOG_DAEMON, id)
 		if err != nil {
-			if err == github.ErrEventNotFound {
-				log.Println(err)
-			}
+			log.Println(err)
 		}
+		log.SetOutput(l)
+	default:
+		log.Println("Unknown logger type")
+	}
+}
 
-		switch event.(type) {
-		case github.PushPayload:
-			log.Println("Received a push event")
-			go executeAnsible(*ansibleScriptPath)
-		default:
-			log.Printf("unknown event type %T\n", event)
-			return
+func handleWebhook(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc(*pattern, func(rw http.ResponseWriter, r *http.Request) {
+		event := NewWebhookParser(*secret)
+		_, err := event(r)
+		if err != nil {
+			log.Println(err)
 		}
+		go executeAnsible(*ansibleScriptPath)
 	})
 }
 
 func main() {
 	flag.Parse()
 	var err error
+	setLoggerOutput("logid")
 	log.Println("server started at: ", *address+*pattern)
 	http.HandleFunc(*pattern, handleWebhook)
 	if err = http.ListenAndServe(*address, nil); err != nil {
@@ -117,12 +128,6 @@ func executeAnsible(scriptPath string) (err error) {
 		ConnectionOptions: ansiblePlaybookConnectionOptions,
 		Options:           ansiblePlaybookOptions,
 	}
-	buff := os.Stdout
-	errorLogger := log.New(buff, "ERROR: ", log.Ldate|log.Ltime|log.Lshortfile)
 	err = playbook.Run(context.TODO())
-	fmt.Println("[*] Running script")
-	if err != nil {
-		errorLogger.Println(err)
-	}
 	return
 }
