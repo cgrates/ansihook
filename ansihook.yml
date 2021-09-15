@@ -18,6 +18,11 @@
         src: ~/go/bin/ansihook
         dest: /usr/bin
         mode: 0644
+    
+    - name: Build ansihook for docker
+      shell: "sh docker/build.sh"
+      args:
+        chdir: "docker/"
 
     - name: Configuring systemd properties
       become: yes
