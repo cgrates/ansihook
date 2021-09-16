@@ -20,9 +20,9 @@
         mode: 0644
     
     - name: Build ansihook for docker
-      shell: "sh docker/build.sh"
+      command: sh build.sh
       args:
-        chdir: "docker/"
+        chdir: docker/
 
     - name: Configuring systemd properties
       become: yes

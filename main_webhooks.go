@@ -16,13 +16,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"flag"
 	"log"
 	"log/syslog"
 	"net/http"
+	"os"
 
 	"github.com/apenella/go-ansible/pkg/options"
 	"github.com/apenella/go-ansible/pkg/playbook"
@@ -74,11 +74,9 @@ var (
 )
 
 func setLoggerOutput(id string) {
-	logger := bytes.NewBuffer(nil)
 	switch *logType {
 	case MetaStdLog:
-		log.SetOutput(logger)
-
+		log.SetOutput(os.Stdout)
 	case MetaSysLog:
 		var l *syslog.Writer
 		l, err := syslog.New(syslog.LOG_INFO|syslog.LOG_DAEMON, id)
