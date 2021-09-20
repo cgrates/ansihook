@@ -1,0 +1,5 @@
+SECRET=ansihook
+PATTERN=/webhooks
+ADDRESS=:8080
+ANSIBLE_SCRIPT_PATH="./main.yml"
+ANSIBLE_INVENTORY="./hosts"
